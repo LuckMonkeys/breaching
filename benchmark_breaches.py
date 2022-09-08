@@ -37,7 +37,8 @@ def main_process(process_idx, local_group_size, cfg, num_trials=100):
         f"Partitioning is set to {cfg.case.data.partition}. Make sure there exist {num_trials} users in this scheme."
     )
 
-    cfg.case.user.user_idx = -1
+    if cfg.case.user.user_idx <= 0:
+        cfg.case.user.user_idx = -1
     run = 0
     overall_metrics = []
     while run < num_trials:
@@ -62,37 +63,48 @@ def main_process(process_idx, local_group_size, cfg, num_trials=100):
             # Run exchange
             shared_user_data, payloads, true_user_data = server.run_protocol(user)
             # Evaluate attack:
-            try:
+            # try:
+
+            if cfg.attack.attack_type == 'optimization_GAN_CMA':
+                from pytorch_pretrained_biggan import (BigGAN, one_hot_from_names, truncated_noise_sample,
+                                                    save_as_images, display_in_terminal, convert_to_images)
+                generator= BigGAN.from_pretrained('biggan-deep-256').to(setup['device'])
+
+                reconstruction, stats = attacker.reconstruct(
+                    payloads, shared_user_data, generator=generator, dryrun=cfg.dryrun
+                )
+            else:
+
                 reconstruction, stats = attacker.reconstruct(
                     payloads, shared_user_data, server.secrets, dryrun=cfg.dryrun
                 )
 
-                # Run the full set of metrics:
-                metrics = breaching.analysis.report(
-                    reconstruction,
-                    true_user_data,
-                    payloads,
-                    server.model,
-                    order_batch=True,
-                    compute_full_iip=True,
-                    compute_rpsnr=True,
-                    compute_ssim=True,
-                    cfg_case=cfg.case,
-                    setup=setup,
-                )
-                # Add query metrics
-                metrics["queries"] = user.counted_queries
+            # Run the full set of metrics:
+            metrics = breaching.analysis.report(
+                reconstruction,
+                true_user_data,
+                payloads,
+                server.model,
+                order_batch=True,
+                compute_full_iip=True,
+                compute_rpsnr=True,
+                compute_ssim=True,
+                cfg_case=cfg.case,
+                setup=setup,
+            )
+            # Add query metrics
+            metrics["queries"] = user.counted_queries
 
-                # Save local summary:
-                breaching.utils.save_summary(cfg, metrics, stats, time.time() - local_time, original_cwd=False)
-                overall_metrics.append(metrics)
-                # Save recovered data:
-                if cfg.save_reconstruction:
-                    breaching.utils.save_reconstruction(reconstruction, payloads, true_user_data, cfg)
-                if cfg.dryrun:
-                    break
-            except Exception as e:  # noqa # yeah we're that close to the deadlines
-                log.info(f"Trial {run} broke down with error {e}.")
+            # Save local summary:
+            breaching.utils.save_summary(cfg, metrics, stats, time.time() - local_time, original_cwd=False)
+            overall_metrics.append(metrics)
+            # Save recovered data:
+            if cfg.save_reconstruction:
+                breaching.utils.save_reconstruction(reconstruction, payloads, true_user_data, cfg)
+            if cfg.dryrun:
+                break
+            # except Exception as e:  # noqa # yeah we're that close to the deadlines
+            #     log.info(f"Trial {run} broke down with error {e}.")
 
     # Compute average statistics:
     average_metrics = breaching.utils.avg_n_dicts(overall_metrics)

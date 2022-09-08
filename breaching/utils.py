@@ -287,3 +287,94 @@ def huggingface_offline_mode(huggingface_offline_mode):
     if huggingface_offline_mode:
         os.environ["HF_DATASETS_OFFLINE"] = "1"
         os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
+
+
+
+
+import torchvision
+from PIL import Image
+def grad_fn(model, img, label, loss_fn):
+   return torch.autograd.grad(loss_fn(model(img), label), model.parameters())
+    # pass
+
+def l2_norm(base, ref):
+    return ((base - ref)**2).sum()
+
+def cosin_similarity(base, ref):
+    scalar_product = (base * ref).sum()
+    norm = base.pow(2).sum().sqrt() * ref.pow(2).sum().sqrt() 
+    return 1 - scalar_product / norm
+def grad_sensitive_from_transformaiton(model, img, loss_fn, label, transforms, compare_fn):
+    # calculate the orignal gradient
+    base_grad = grad_fn(model, img, label, loss_fn)
+
+    # calculate the graddient from transformed images
+    if not isinstance(transforms, list):
+        transforms = [transforms]
+
+    transformed_layers_sensitive = []
+    for transform in transforms:
+        transformed_img = transform(img)
+
+        transformed_grad = grad_fn(model, transformed_img, label, loss_fn)
+    
+        # calculate the l2 norm for each layer, not cnosider the orginal mantiguade of gradient tensor
+        distances = []
+        for base, trans in zip(base_grad, transformed_grad):
+            distances.append(compare_fn(base, trans)) 
+
+        transformed_layers_sensitive.append({transform.__repr__():distances}) 
+    return transformed_layers_sensitive
+
+def grad_sensitive_from_reconstruction(model, img, loss_fn, label, reconstruction_imgs, compare_fn):
+    # calculate the orignal gradient
+    base_grad = grad_fn(model, img, label, loss_fn)
+
+    # calculate the graddient from transformed images
+    if not isinstance(reconstruction_imgs, list):
+        reconstruction_imgs = [reconstruction_imgs]
+
+    layers_sensitive = []
+    for idx, rec_img in enumerate(reconstruction_imgs):
+
+        ref_grad = grad_fn(model, rec_img, label, loss_fn)
+    
+        # calculate the l2 norm for each layer, not cnosider the orginal mantiguade of gradient tensor
+        distances = []
+        for base, ref in zip(base_grad, ref_grad):
+            distances.append(compare_fn(base, ref)) 
+
+        layers_sensitive.append({idx:distances}) 
+    return layers_sensitive
+
+def dir_sort(path):
+    
+    iteration = path.name.split('_')[0]
+    return int(iteration)
+
+def get_imgs_from_dir(dir, device=torch.device('cpu')):
+    from pathlib import Path
+    dir = Path(dir)
+    reconstructions = []
+
+    paths = sorted(dir.iterdir(), key=dir_sort)
+
+
+    for img_path in paths:
+        img_path  = str(img_path.absolute())
+        # print(img_path)
+        img = torchvision.transforms.ToTensor()(Image.open(img_path)).to(device=device).unsqueeze(0)
+        reconstructions.append(img)
+    return reconstructions
+
+
+def show_sensitives(sensitives):
+    for sens_dict in sensitives:
+        distance = torch.tensor(list(sens_dict.values())[0])
+        # print(distance.shape)
+        yield torch.argsort(distance, descending=True)
+
+
+
+

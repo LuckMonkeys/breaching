@@ -17,12 +17,16 @@ optim:
   signed: False
   step_size: 0.1
   boxed: True
-  max_iterations: 20_000
+  # max_iterations: 20_000
+  # max_iterations: 24_000
+  max_iterations: 5000
   step_size_decay: cosine-decay
   langevin_noise: 0.01 # the original paper has 0.2 but the value does feel relatively large in my experiments
   warmup: 50
+  patched:
 
-  callback: 1000 # Print objective value every callback many iterations
+  # callback: 1000 # Print objective value every callback many iterations
+  callback: 100 # Print objective value every callback many iterations
 
 regularization:
   total_variation:
@@ -36,3 +40,15 @@ regularization:
     scale: 0.1 #  reduce this value if user.provide_buffers=False
   # group_regularization: # Not implemented. Unclear to me how this was implemented without accesss to the source code
   #  scale: 0.01
+
+accelerate:
+  add_noise:
+    # interval: 1000
+    # scale: 0.01
+    # num_levels: 20
+
+  hierarchical_gradient: True
+
+out_dir: "/home/zx/Gitrepo/breaching/out/optimization_GI_imgs_noise_"
+layer_weights: "equal"
+

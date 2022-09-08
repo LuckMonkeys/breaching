@@ -2,7 +2,7 @@ name: ImageNet
 modality: vision
 task: classification
 
-path: "~/data/imagenet"
+path: "~/data/ImageNet/ILSVRC2012_img_train"
 size: 1_281_167
 classes: 1000
 shape:
@@ -30,7 +30,8 @@ augmentations_val:
 
 # Federated Learning specifics:
 default_clients: 50
-partition: balanced # used for synthetic splits. Current options for synthetic split: balanced / unique-class
+# partition: balanced # used for synthetic splits. Current options for synthetic split: balanced / unique-class
+partition: unique-class # used for synthetic splits. Current options for synthetic split: balanced / unique-class
 examples_from_split: validation
 
 # Data-specific implementation constants:

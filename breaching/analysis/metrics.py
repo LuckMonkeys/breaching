@@ -120,7 +120,8 @@ def psnr_compute(img_batch, ref_batch, batched=False, factor=1.0, clip=False):
             return [torch.tensor(float("inf"), device=img_batch.device)] * 2
     else:
         B = img_batch.shape[0]
-        mse_per_example = ((img_batch.detach() - ref_batch) ** 2).view(B, -1).mean(dim=1)
+        # mse_per_example = ((img_batch.detach() - ref_batch) ** 2).view(B, -1).mean(dim=1)
+        mse_per_example = ((img_batch.detach() - ref_batch) ** 2).reshape(B, -1).mean(dim=1)
         if any(mse_per_example == 0):
             return [torch.tensor(float("inf"), device=img_batch.device)] * 2
         elif not all(torch.isfinite(mse_per_example)):
@@ -280,7 +281,8 @@ def image_identifiability_precision(
                         1 - torch.nn.functional.cosine_similarity(features_rec.view(-1), features_comp.view(-1), dim=0)
                     ]
                 else:
-                    distances[score] += [torch.norm(comparable_data.view(-1) - reconstruction.view(-1))]
+                    # distances[score] += [torch.norm(comparable_data.view(-1) - reconstruction.view(-1))]
+                    distances[score] += [torch.norm(comparable_data.view(-1) - reconstruction.reshape(-1))]
 
         # Verify that this match is actually close to the true user data:
         for score in scores:

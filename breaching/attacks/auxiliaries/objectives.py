@@ -1,7 +1,11 @@
 """Various objective functions that can be re-used for multiple attacks."""
 
+from argparse import ArgumentError
+from asyncio import SafeChildWatcher
+import re
 import torch
 from typing import List
+import math
 
 from .make_functional import make_functional_with_buffers
 
@@ -23,15 +27,70 @@ class GradientLoss(torch.nn.Module):
 
         self.cfg_impl = cfg_impl
 
-    def forward(self, model, gradient_data, candidate, labels):
+    def forward(self, model, gradient_data, candidate, labels, layer_weights=None):
         gradient, task_loss = self._grad_fn(model, candidate, labels)
+
+
+        # # Always choose the last dim to sort, is good idea for 2d or 4d dim ?
+        # top_10 = [torch.topk(grad, k=math.ceil(0.01*grad.shape[-1])) for grad in gradient]
+        # gradient_top, gradient_data_top = [], []
+
+
+        # for i, item in enumerate(top_10) :
+        #     gradient_top.append(item.values)
+            
+        #     dims = len(gradient_data[i].shape)
+        #     if dims == 1:
+        #         gradient_data_top.append(gradient_data[i][item.indices])
+        #     elif dims == 2:
+        #         dim0 = [[i] for i in range(gradient_data[i].shape[0])] 
+        #         gradient_data_top.append(gradient_data[i][dim0, item.indices])
+        #     elif dims == 4:
+        #         dim0 = torch.tensor([i for i in range(gradient_data[i].shape[0])])[:, None, None, None]
+        #         dim1 = torch.tensor([i for i in range(gradient_data[i].shape[1])])[None, :, None, None]
+        #         dim2 = torch.tensor([i for i in range(gradient_data[i].shape[2])])[None, None, :, None]
+
+        #         gradient_data_top.append(gradient_data[i][dim0, dim1, dim2, item.indices])
+        # print(self.cfg_impl)
+        if self.cfg_impl.sparse is not None:
+            gradient, gradient_data = self.gradient_sparse(gradient=gradient, gradient_data=gradient_data, scale=self.cfg_impl.sparse)
+
         with torch.autocast(candidate.device.type, enabled=self.cfg_impl.mixed_precision):
-            objective = self.gradient_based_loss(gradient, gradient_data)
+            #TODO change layer_weights default to 'equal'
+            # default equal
+            objective = self.gradient_based_loss(gradient, gradient_data, layer_weights=layer_weights)
+
         if self.task_regularization != 0:
             objective += self.task_regularization * task_loss
         return objective, task_loss.detach()
+    
+    def gradient_sparse(self, gradient, gradient_data, scale=0.1):
 
-    def gradient_based_loss(self, gradient_rec, gradient_data):
+        top_10 = [torch.topk(grad, k=math.ceil(scale*grad.shape[-1])) for grad in gradient]
+        gradient_top, gradient_data_top = [], []
+
+
+        for i, item in enumerate(top_10) :
+            gradient_top.append(item.values)
+            
+            dims = len(gradient_data[i].shape)
+            if dims == 1:
+                gradient_data_top.append(gradient_data[i][item.indices])
+            elif dims == 2:
+                dim0 = [[i] for i in range(gradient_data[i].shape[0])] 
+                gradient_data_top.append(gradient_data[i][dim0, item.indices])
+            elif dims == 4:
+                dim0 = torch.tensor([i for i in range(gradient_data[i].shape[0])])[:, None, None, None]
+                dim1 = torch.tensor([i for i in range(gradient_data[i].shape[1])])[None, :, None, None]
+                dim2 = torch.tensor([i for i in range(gradient_data[i].shape[2])])[None, None, :, None]
+
+                gradient_data_top.append(gradient_data[i][dim0, dim1, dim2, item.indices])
+
+        return gradient_top, gradient_data_top
+
+
+
+    def gradient_based_loss(self, gradient_rec, gradient_data, layer_weights=None):
         raise NotImplementedError()
 
     def __repr__(self):
@@ -80,18 +139,23 @@ class Euclidean(GradientLoss):
         self.scale = scale
         self.task_regularization = task_regularization
 
-    def gradient_based_loss(self, gradient_rec, gradient_data):
-        return self._euclidean(gradient_rec, gradient_data) * self.scale
+    def gradient_based_loss(self, gradient_rec, gradient_data, layer_weights=None):
+        # if layer_weights is not None:
+        #     if len(layer_weights) != len(gradient_rec):
+        #         raise ArgumentError('The shape of layer_weights must same as gradient_rec')
+        #     gradient_rec = [weight * value for weight, value in zip(layer_weights, gradient_rec)]
+        #     gradient_data = [weight * value for weight, value in zip(layer_weights, gradient_data)]
+        return self._euclidean(gradient_rec, gradient_data, layer_weights) * self.scale
 
     def __repr__(self):
         return f"Euclidean loss with scale={self.scale} and task reg={self.task_regularization}"
 
     @staticmethod
     @torch.jit.script
-    def _euclidean(gradient_rec: List[torch.Tensor], gradient_data: List[torch.Tensor]):
+    def _euclidean(gradient_rec: List[torch.Tensor], gradient_data: List[torch.Tensor], layer_weights: List[float]):
         objective = gradient_rec[0].new_zeros(1,)
-        for rec, data in zip(gradient_rec, gradient_data):
-            objective += (rec - data).pow(2).sum()
+        for weight, rec, data in zip(layer_weights, gradient_rec, gradient_data):
+            objective += (rec - data).pow(2).sum() * weight
         return 0.5 * objective
 
 
@@ -174,8 +238,18 @@ class CosineSimilarity(GradientLoss):
         self.scale = scale
         self.task_regularization = task_regularization
 
-    def gradient_based_loss(self, gradient_rec, gradient_data):
-        return self._cosine_sim(gradient_rec, gradient_data) * self.scale
+    def gradient_based_loss(self, gradient_rec, gradient_data, layer_weights=None):
+
+        # if layer_weights is not None:
+        #     if len(layer_weights) != len(gradient_rec):
+        #         raise ArgumentError('The shape of layer_weights must same as gradient_rec')
+        #     gradient_rec = [weight * value for weight, value in zip(layer_weights, gradient_rec)]
+        #     gradient_data = [weight * value for weight, value in zip(layer_weights, gradient_data)]
+        # print(layer_weights)
+        # cosin_loss = self._cosine_sim(gradient_rec, gradient_data, layer_weights) * self.scale
+        cosin_loss = self._cosine_sim(gradient_rec, gradient_data) * self.scale
+        # print(cosin_loss)
+        return cosin_loss
 
     def __repr__(self):
         return f"Cosine Similarity with scale={self.scale} and task reg={self.task_regularization}"
@@ -188,13 +262,63 @@ class CosineSimilarity(GradientLoss):
         data_norm = gradient_rec[0].new_zeros(1,)
 
         for rec, data in zip(gradient_rec, gradient_data):
-            scalar_product += (rec * data).sum()
+            scalar_product += (rec * data).sum() 
             rec_norm += rec.pow(2).sum()
             data_norm += data.pow(2).sum()
 
         objective = 1 - scalar_product / (rec_norm.sqrt() * data_norm.sqrt())
         return objective
 
+class LayerCosineSimilarity(GradientLoss):
+    """Gradient matching based on cosine similarity of two gradient vectors."""
+
+    def __init__(self, scale=1.0, task_regularization=0.0, **kwargs):
+        super().__init__()
+        self.scale = scale
+        self.task_regularization = task_regularization
+        # self.mask_value = 1e-6
+
+    def gradient_based_loss(self, gradient_rec, gradient_data, layer_weights=None):
+        
+        if layer_weights is not None:
+            # print(type(gradient_rec), gradient_rec)
+            gradient_rec, gradient_data = [gradient_rec[idx] for idx in layer_weights],[gradient_data[idx] for idx in layer_weights]
+            cosin_loss = self._cosine_sim(gradient_rec, gradient_data)
+            loss = sum(cosin_loss)*self.scale
+            
+            return loss
+        else:
+            # cosin_loss = self._cosine_sim(gradient_rec, gradient_data, layer_weights) * self.scale
+            cosin_loss = self._cosine_sim(gradient_rec, gradient_data)
+            # print('cosin_loss', cosin_loss, len(cosin_loss))
+            largest_loss =sorted(cosin_loss, reverse=True)[:math.ceil(0.3 * len(cosin_loss))]
+            # print('larget', largest_loss, len(largest_loss))
+            loss = sum(largest_loss)*self.scale
+            # loss = sum(cosin_loss)*self.scale
+            # print(loss)
+            return loss
+
+    def __repr__(self):
+        return f"Cosine Similarity with scale={self.scale} and task reg={self.task_regularization}"
+
+    @staticmethod
+    @torch.jit.script
+    def _cosine_sim(gradient_rec: List[torch.Tensor], gradient_data: List[torch.Tensor]):
+        scalar_product = gradient_rec[0].new_zeros(1,)
+        rec_norm = gradient_rec[0].new_zeros(1,)
+        data_norm = gradient_rec[0].new_zeros(1,)
+
+        objectives = []
+        for rec, data in zip( gradient_rec, gradient_data):
+            # mask = data.abs() > 1e-6 
+            scalar_product = (rec * data).sum() 
+            rec_norm = rec.pow(2).sum()
+            data_norm = data.pow(2).sum()
+
+            # print('------------------------\n', scalar_product, rec_norm.sqrt(), data_norm.sqrt())
+            objective = 1 - scalar_product / ((rec_norm.sqrt() * data_norm.sqrt()) + 1e-6)
+            objectives.append(objective)
+        return objectives
 
 class AngularSimilarity(CosineSimilarity):
     """Gradient matching based on angular similarity of two gradient vectors.
@@ -498,6 +622,7 @@ objective_lookup = {
     "cosine-similarity": CosineSimilarity,
     "masked-cosine-similarity": MaskedCosineSimilarity,
     "fast-cosine-similarity": FastCosineSimilarity,
+    "layer-cosine-similariy": LayerCosineSimilarity,
     "angular": AngularSimilarity,
     "l1": L1Loss,
     "pearlmutter-loss": PearlmutterEuclidean,

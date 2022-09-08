@@ -4,6 +4,7 @@ import torch
 import re
 from .metrics import psnr_compute, registered_psnr_compute, image_identifiability_precision, cw_ssim
 from ..cases import construct_dataloader
+import copy
 
 import logging
 
@@ -14,7 +15,7 @@ def report(
     reconstructed_user_data,
     true_user_data,
     server_payload,
-    model,
+    server_model,
     order_batch=True,
     compute_full_iip=False,
     compute_rpsnr=True,
@@ -22,7 +23,8 @@ def report(
     cfg_case=None,
     setup=dict(device=torch.device("cpu"), dtype=torch.float),
 ):
-    model.to(**setup)
+    model = copy.deepcopy(server_model)
+    model.to(**setup) # TODO change to model=copy.deepcopy(model)
     metadata = server_payload[0]["metadata"]
     if metadata["modality"] == "text":
         modality_metrics = _run_text_metrics(
@@ -61,7 +63,8 @@ def report(
                     buffer.copy_(server_state.to(**setup))
             else:
                 if len(true_user_data["buffers"]) > 0:
-                    for buffer, user_state in zip(model.buffers(), true_user_data["buffers"][idx]):
+                    # for buffer, user_state in zip(model.buffers(), true_user_data["buffers"][idx]):
+                    for buffer, user_state in zip(model.buffers(), true_user_data["buffers"]):
                         buffer.copy_(user_state.to(**setup))
 
             # Compute the forward passes

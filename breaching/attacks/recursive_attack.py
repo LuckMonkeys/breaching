@@ -143,6 +143,7 @@ class RecursiveAttacker(_BaseAttacker):
         return inputs
 
     def _retrieve_feature_shapes(self, model, shared_data):
+        # why do this operation?
         """Retrieve x_shape by hooking into the model and recording it.
 
         Feature shapes are returned in reverse order!"""

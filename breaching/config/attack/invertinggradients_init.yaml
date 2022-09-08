@@ -7,24 +7,23 @@ objective:
   type: cosine-similarity
   scale: 1.0 # need to have a much smaller scale like 0.0001 for euclidean objectives
 
+init: "rand-wei-4"
+
 restarts:
   num_trials: 1
   scoring: "cosine-similarity"
 
-init: zeros
 optim:
   optimizer: adam
   signed: "hard"
   step_size: 0.1
   boxed: True
-  # max_iterations: 24_000
-  max_iterations: 5000
-  # step_size_decay: step-lr
-  step_size_decay: cosine-decay
-  patched: 
+  max_iterations: 24_000
+  step_size_decay: step-lr
 
-  # callback: 1000 # Print objective value every callback many iterations
-  callback: 100 # Print objective value every callback many iterations
+  patched: 4
+
+  callback: 1000 # Print objective value every callback many iterations
 
 regularization:
   total_variation:
@@ -33,8 +32,19 @@ regularization:
     inner_exp: 1
     outer_exp: 1
 
-  # channelgrad:
-  #   scale: 0.3
+  # features:
+  #   scale: 0.1
+
+  # orthogonality:
+  #   scale: 0.1
+
+  # norm:
+  #   scale: 1
+  #   pnorm: 2
+
+  # deep_inversion:
+  #   scale: 0.001
+
 
 accelerate:
   add_noise:
@@ -43,6 +53,5 @@ accelerate:
     # num_levels: 20
 
   hierarchical_gradient: True
-# out_dir: "/home/zx/Gitrepo/breaching/out/patch_benchmark/invertgrad/origin_"
-out_dir: 
+out_dir: "/home/zx/Gitrepo/breaching/out/optimization_IG_imgs_noise_"
 layer_weights: "equal"

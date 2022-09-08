@@ -181,7 +181,7 @@ class UserSingleStep(torch.nn.Module):
         shared_data = dict(
             gradients=shared_grads, buffers=shared_buffers if self.provide_buffers else None, metadata=metadata
         )
-        true_user_data = dict(data=data[self.data_key], labels=data["labels"], buffers=shared_buffers)
+        true_user_data = dict(data=data[self.data_key], labels=data["labels"], buffers=shared_buffers) #TODO why not [share_buffers]
 
         return shared_data, true_user_data
 
@@ -212,6 +212,7 @@ class UserSingleStep(torch.nn.Module):
             if num_samples > self.num_data_points:
                 break
 
+        # data_blocks = [self.dataloader.dataset.dataset[:128]]
         if num_samples < self.num_data_points:
             raise ValueError(
                 f"This user does not have the requested {self.num_data_points} samples,"
@@ -233,7 +234,7 @@ class UserSingleStep(torch.nn.Module):
         for line in decoded_tokens:
             print(line)
 
-    def plot(self, user_data, scale=False, print_labels=False):
+    def plot(self, user_data, scale=False, print_labels=False, save_dir=None):
         """Plot user data to output. Probably best called from a jupyter notebook."""
         import matplotlib.pyplot as plt  # lazily import this here
 
@@ -257,6 +258,10 @@ class UserSingleStep(torch.nn.Module):
         if data.shape[0] == 1:
             plt.axis("off")
             plt.imshow(data[0].permute(1, 2, 0).cpu())
+            if save_dir is not None:
+                import torchvision
+                img = torchvision.transforms.ToPILImage()(data[0].cpu()) 
+                img.save(f'{save_dir}/{labels[0]}.png')
             if print_labels:
                 plt.title(f"Data with label {classes[labels]}")
         else:

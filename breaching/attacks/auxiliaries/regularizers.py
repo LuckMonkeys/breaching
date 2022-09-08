@@ -68,7 +68,7 @@ class LinearLayerRegularization(torch.nn.Module):
         self.setup = setup
         self.scale = scale
 
-    def initialize(self, models, gradient_data, *args, **kwargs):
+    def initialize(self, models, shared_data, *args, **kwargs):
         self.measured_features = []
         self.refs = [list() for model in models]
 
@@ -229,6 +229,85 @@ class DeepInversion(torch.nn.Module):
     def __repr__(self):
         return f"Deep Inversion Regularization (matching batch norms), scale={self.scale}, first-bn-mult={self.first_bn_multiplier}"
 
+class Activation(torch.nn.Module):
+    """compute the activaton difference before fc layer"""
+    def __init__(self, setup, scale=0.1, loss_fn='MSE'):
+        """scale is the overall scaling. inner_exp and outer_exp control isotropy vs anisotropy.
+        Optionally also includes proper color TV via double opponents."""
+        super().__init__()
+        self.setup = setup
+        self.scale = scale
+        self.loss_fn = loss_fn
+        self.constraints = None
+
+    def initialize(self, models, share_ddata, labels, constraints=None, *args, **kwargs):
+        self.constraints = constraints
+        self.refs = [None for model in models]
+        for idx, model in enumerate(models):
+            for module in model.modules():
+                # Keep only the last linear layer here:
+                if isinstance(module, torch.nn.Linear):
+                    self.refs[idx] = _LinearFeatureHook(module)
+    def forward(self, tensor, *args, **kwargs):
+
+        regularization_value = 0
+        for ref, activation in zip(self.refs, self.constraints):
+            # regularization_value += (ref.features - measured_val).pow(2).mean()
+            if self.loss_fn == 'MSE':
+                regularization_value += torch.nn.MSELoss()(ref.features, activation)
+            elif self.loss_fn == 'Cosin':
+                regularization_value += torch.nn.CosineSimilarity()(ref.features, activation)
+                # loss = torch.nn.CosineSimilarity(self.constraints, tensor)
+            else:
+                raise NotImplementedError("Not Implement the Loss Function of Activation")
+        
+        return regularization_value * self.scale
+
+
+    def __repr__(self):
+        return f"Activation, scale={self.scale}. loss_function={self.loss_fn}. "
+
+
+
+class Channelgrad(torch.nn.Module):
+    """compute the channel gradient difference"""
+    def __init__(self, setup, scale=0.3):
+        """scale is the overall scaling. inner_exp and outer_exp control isotropy vs anisotropy.
+        Optionally also includes proper color TV via double opponents."""
+        super().__init__()
+        self.setup = setup
+        self.scale = scale
+
+    def initialize(self, models, *args, **kwargs):
+        pass
+    def forward(self, tensor, *args, **kwargs):
+
+        if len(tensor.shape) != 4:
+            raise Exception(f'Error candiate shape {tensor.shape}, excpet 4')
+        cos_0_1 = self.cal_cosine(tensor.grad[:, 0, :, :],tensor.grad[:, 1, :, :] )
+        cos_0_2 = self.cal_cosine(tensor.grad[:, 0, :, :],tensor.grad[:, 2, :, :] )
+        cos_1_2 = self.cal_cosine(tensor.grad[:, 1, :, :],tensor.grad[:, 2, :, :] )
+
+    # print(cos_0_1, cos_0_2, cos_1_2)
+
+    
+        return self.scale * (1 - (cos_0_1 + cos_0_2 + cos_1_2)/3)
+        # return regularization_value * self.scale
+
+    def cal_cosine(self, a, b):
+        scalar_product = (a * b).sum() 
+        rec_norm = a.pow(2).sum()
+        data_norm = b.pow(2).sum()
+
+        objective = 1 - scalar_product / ((rec_norm.sqrt() * data_norm.sqrt()) + 1e-6)
+        
+        return objective
+
+    def __repr__(self):
+        return f"channel grad, scale={self.scale}."
+
+
+
 
 regularizer_lookup = dict(
     total_variation=TotalVariation,
@@ -236,4 +315,6 @@ regularizer_lookup = dict(
     norm=NormRegularization,
     deep_inversion=DeepInversion,
     features=FeatureRegularization,
+    activation=Activation,
+    channelgrad=Channelgrad,
 )

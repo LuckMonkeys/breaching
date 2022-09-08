@@ -7,7 +7,10 @@ from .optimization_with_label_attack import OptimizationJointAttacker
 from .optimization_permutation_attack import OptimizationPermutationAttacker
 from .analytic_attack import AnalyticAttacker, ImprintAttacker, DecepticonAttacker, AprilAttacker
 from .recursive_attack import RecursiveAttacker
-
+from .optimized_and_recursive_attack import Optimization_and_recursive_attacker
+from .optimized_with_rgap_feature_attack import Optimization_with_grap_feature_attacker
+from .optimization_GAN_attack import AdamReconstructor
+from .optimization_GAN_attack import NGReconstructor
 
 def prepare_attack(model, loss, cfg_attack, setup=dict(dtype=torch.float, device=torch.device("cpu"))):
     if cfg_attack.attack_type == "optimization":
@@ -28,6 +31,14 @@ def prepare_attack(model, loss, cfg_attack, setup=dict(dtype=torch.float, device
         attacker = OptimizationJointAttacker(model, loss, cfg_attack, setup)
     elif cfg_attack.attack_type == "permutation-optimization":
         attacker = OptimizationPermutationAttacker(model, loss, cfg_attack, setup)
+    elif cfg_attack.attack_type == "optimization-recursive":
+        attacker = Optimization_and_recursive_attacker(model, loss, cfg_attack, setup)
+    elif cfg_attack.attack_type == 'optimization_with_grap_feature':
+        attacker = Optimization_with_grap_feature_attacker(model, loss, cfg_attack, setup)
+    elif cfg_attack.attack_type == 'optimization_GAN_Adam':
+        attacker = AdamReconstructor(model, loss, cfg_attack, setup)
+    elif cfg_attack.attack_type == 'optimization_GAN_CMA':
+        attacker = NGReconstructor(model, loss, cfg_attack, setup)
     else:
         raise ValueError(f"Invalid type of attack {cfg_attack.attack_type} given.")
 
