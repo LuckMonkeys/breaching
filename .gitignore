@@ -7,6 +7,21 @@ tables/*.ods
 
 .vs/
 
+#diffusion 
+breaching/attacks/accelarate/guided_diffusion/fig/*
+breaching/attacks/accelarate/guided_diffusion/log/*
+breaching/attacks/accelarate/guided_diffusion/models/*
+
+
+#reconstructed result
+fig/*
+out/* 
+outputs/*
+*log*
+resnet50*
+cnn6
+rec_datasets/*
+
 *.pdf
 images
 

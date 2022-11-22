@@ -11,6 +11,8 @@ from .optimized_and_recursive_attack import Optimization_and_recursive_attacker
 from .optimized_with_rgap_feature_attack import Optimization_with_grap_feature_attacker
 from .optimization_GAN_attack import AdamReconstructor
 from .optimization_GAN_attack import NGReconstructor
+from .optimization_SR_attack import OptimizationSRAttacker
+from .optimization_diffusion import OptimizationDiffusionAttacker
 
 def prepare_attack(model, loss, cfg_attack, setup=dict(dtype=torch.float, device=torch.device("cpu"))):
     if cfg_attack.attack_type == "optimization":
@@ -39,6 +41,10 @@ def prepare_attack(model, loss, cfg_attack, setup=dict(dtype=torch.float, device
         attacker = AdamReconstructor(model, loss, cfg_attack, setup)
     elif cfg_attack.attack_type == 'optimization_GAN_CMA':
         attacker = NGReconstructor(model, loss, cfg_attack, setup)
+    elif cfg_attack.attack_type == 'optimization_SR':
+        attacker = OptimizationSRAttacker(model, loss, cfg_attack, setup)        
+    elif cfg_attack.attack_type == 'invertinggradients_diffusion':
+        attacker = OptimizationDiffusionAttacker(model, loss, cfg_attack, setup)        
     else:
         raise ValueError(f"Invalid type of attack {cfg_attack.attack_type} given.")
 

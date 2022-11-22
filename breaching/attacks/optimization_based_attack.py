@@ -50,7 +50,7 @@ def cosine_sim_layer(gradient):
 
     
     return (cos_0_1 + cos_0_2 + cos_1_2)/3
-def save_img(dir, img_tensor, iteration=0, is_batch=True, dm=0, ds=1):
+def save_img(dir, img_tensor, iteration=0, trial=1, is_batch=True, dm=0, ds=1):
     '''save torch tensor to img
     
     : dir save_img dir
@@ -66,12 +66,17 @@ def save_img(dir, img_tensor, iteration=0, is_batch=True, dm=0, ds=1):
 
     if not os.path.exists(dir):
         os.mkdir(dir)
+
+    trial_path = dir + '/' + f'{trial}' 
+    if not os.path.exists(trial_path):
+        os.mkdir(trial_path)
+
     img_tensor = torch.clamp(img_tensor * ds + dm, 0, 1)
     if is_batch:
        for  i, img in enumerate(img_tensor):
 
             img = torchvision.transforms.ToPILImage()(img)
-            path = dir + '/' + f'{iteration}_{i}.png' 
+            path = trial_path + '/' + f'{iteration}_{i}.png' 
             img.save(path)
     else:
         # img.mul_(ds).add_(dm).clamp_(0, 1)
@@ -79,7 +84,30 @@ def save_img(dir, img_tensor, iteration=0, is_batch=True, dm=0, ds=1):
         # img.save(path)
         raise Exception('Except batch dimension in img tensor')
 
+def save_img_d(path, img_tensor, is_batch=True, dm=0, ds=1):
+    '''save torch tensor to img
+    
+    : dir save_img dir
+    :img_tensor img tensor 
+    :iteration iteration
+    : is_batch  is img_tensor includes batch dimension
+    : dm dataset mean in each channel [1,3,1,1]
+    : ds dataset stard variation in each channel [1,3,1,1]
+    
+    '''
+    import torchvision
+    import os
 
+    img_tensor = torch.clamp(img_tensor * ds + dm, 0, 1)
+    if is_batch:
+       for  i, img in enumerate(img_tensor):
+            img = torchvision.transforms.ToPILImage()(img)
+            img.save(path)
+    else:
+        # img.mul_(ds).add_(dm).clamp_(0, 1)
+        # img = torchvision.transforms.ToPILImage()(img_tensor)
+        # img.save(path)
+        raise Exception('Except batch dimension in img tensor') 
 def add_nosie_to_candicate(candidate, iteration, interval=100, num_levels=10, scale=0.1, start_iter=2000):
     """
     : candidate original sample
@@ -190,7 +218,7 @@ class OptimizationBasedAttacker(_BaseAttacker):
 
         # gaussian_blur = torchvision.transforms.GaussianBlur(3)
         # savve log info
-        if (dir_path:=self.cfg.out_dir) is not None:
+        if (dir_path:=self.cfg.save.out_dir) is not None:
             log.setLevel(logging.INFO)
             if not os.path.exists( dir_path):
                 os.mkdir(dir_path)
@@ -204,11 +232,11 @@ class OptimizationBasedAttacker(_BaseAttacker):
                 scheduler.step()
 
                 #scheduler pattern size
-                if self.cfg.optim.patched is not None:
-                    if 1000 == iteration:
-                        self.cfg.optim.patched /= 2
-                    elif 2000 == iteration:
-                        self.cfg.optim.patched /= 2
+                # if self.cfg.optim.patched is not None:
+                #     if 1000 == iteration:
+                #         self.cfg.optim.patched /= 2
+                #     elif 2000 == iteration:
+                #         self.cfg.optim.patched /= 2
                     # elif 3000 == iteration:
                     #     self.cfg.optim.patched /= 2
                     # elif 3000 == iteration:
@@ -224,18 +252,18 @@ class OptimizationBasedAttacker(_BaseAttacker):
                         minimal_value_so_far = objective_value.detach()
                         best_candidate = candidate.detach().clone()
                     
-                    if (noise:=self.cfg.accelerate.add_noise) is not None:
-                        print(noise.interval, noise.scale, noise.num_levels)
-                        add_nosie_to_candicate(candidate=candidate, iteration=iteration, interval=noise.interval, num_levels=noise.num_levels,  scale=noise.scale)
+                    # if (noise:=self.cfg.accelerate.add_noise) is not None:
+                    #     print(noise.interval, noise.scale, noise.num_levels)
+                    #     add_nosie_to_candicate(candidate=candidate, iteration=iteration, interval=noise.interval, num_levels=noise.num_levels,  scale=noise.scale)
                     
-                    if self.cfg.optim.patched is not None and self.cfg.optim.patched > 1:
-                        pattern = int(self.cfg.optim.patched)
+                    # if self.cfg.optim.patched is not None and self.cfg.optim.patched > 1:
+                    #     pattern = int(self.cfg.optim.patched)
                         #         candidate.grad[:, :, x_idx*pattern:(x_idx+1)*pattern, y_idx*pattern:(y_idx+1)*pattern].copy_(torch.mean(candidate.grad[:, :, x_idx*pattern:(x_idx+1)*pattern, y_idx*pattern:(y_idx+1)*pattern], dim=(2,3), keepdim=True))   
 
-                        avg_pool = torch.nn.AvgPool2d(pattern, pattern)
-                        mean_candidate = avg_pool(candidate)
-                        reshpae_candidate = mean_candidate.repeat_interleave(pattern, dim=2).repeat_interleave(pattern, dim=3)
-                        candidate.copy_(reshpae_candidate)
+                        # avg_pool = torch.nn.AvgPool2d(pattern, pattern)
+                        # mean_candidate = avg_pool(candidate)
+                        # reshpae_candidate = mean_candidate.repeat_interleave(pattern, dim=2).repeat_interleave(pattern, dim=3)
+                        # candidate.copy_(reshpae_candidate)
                     
 
                     # if iteration % self.cfg.optim.callback == 0:
@@ -246,18 +274,18 @@ class OptimizationBasedAttacker(_BaseAttacker):
                     
                 time_projectImage = time.time() - current_wallclock - time_update
                 if iteration + 1 == self.cfg.optim.max_iterations or iteration % self.cfg.optim.callback == 0:
-                    if iteration > 2000:
-                        with torch.no_grad():
-                            if self.cfg.accelerate.denoise:
-                                candidate_weight = 0.9
+                    # if iteration > 2000:
+                    # with torch.no_grad():
+                    #     if self.cfg.accelerate.denoise:
+                    #         candidate_weight = 0.9
 
-                                # denoise_img = img_denoise(candidate, dm=self.dm, ds=self.ds)
-                                # denoise_img = sucnet_denoise(candidate, dm=self.dm, ds=self.ds)
-                                denoise_img = swinir_super_resolution(candidate, dm=self.dm, ds=self.ds) 
+                    #         # denoise_img = img_denoise(candidate, dm=self.dm, ds=self.ds)
+                    #         # denoise_img = sucnet_denoise(candidate, dm=self.dm, ds=self.ds)
+                    #         denoise_img = swinir_super_resolution(candidate, dm=self.dm, ds=self.ds) 
 
-                                mix_img = candidate_weight * candidate + (1.0 - candidate_weight ) * denoise_img
-                                # candidate.copy_(denoise_img)
-                                candidate.copy_(mix_img)
+                    #         mix_img = candidate_weight * candidate + (1.0 - candidate_weight ) * denoise_img
+                    #         # candidate.copy_(denoise_img)
+                    #         candidate.copy_(mix_img)
 
                     f_regularizer = ''
                     for regularizer_objective in self.current_regularizer_objectives:
@@ -271,8 +299,13 @@ class OptimizationBasedAttacker(_BaseAttacker):
                         # f" T closure_prefix {time_closure_prefix} | T update {time_update} | T project {time_projectImage}"
                     )
                     current_wallclock = timestamp
-                    if self.cfg.out_dir is not None:
-                        save_img(self.cfg.out_dir, candidate, iteration=iteration, dm=self.dm, ds=self.ds)
+                    if self.cfg.save.out_dir is not None:
+                        if self.cfg.save.idx is not None:
+                            path = self.cfg.save.out_dir + f'/lq_{self.cfg.optim.max_iterations}/{self.cfg.save.idx}.png' #only save the last iteration image
+                            save_img_d(path, candidate, dm=self.dm, ds=self.ds)
+
+                        else: 
+                            save_img(self.cfg.save.out_dir, candidate, iteration=iteration, trial=trial, dm=self.dm, ds=self.ds) # save.out_dir / trail / iteration_{i}
 
                 if not torch.isfinite(objective_value):
                     log.info(f"Recovery loss is non-finite in iteration {iteration}. Cancelling reconstruction!")

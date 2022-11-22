@@ -203,6 +203,7 @@ def swinir_super_resolution(img_tensor, dm=0, ds=1, tile=None, large_model=False
     param_key_g = 'params_ema'
     model.load_state_dict(pretrained_model[param_key_g] if param_key_g in pretrained_model.keys() else pretrained_model, strict=True)
     model.to(device)
+    #Maybe not eval mode in training 
     model.eval()
 
     _, _, h_old, w_old = img_tensor.size()
@@ -214,7 +215,7 @@ def swinir_super_resolution(img_tensor, dm=0, ds=1, tile=None, large_model=False
     output = output[..., :h_old * scale, :w_old * scale]
 
     #rescale to origin size
-    output = torchvision.transforms.Resize((h_old, w_old))(output)
+    # output = torchvision.transforms.Resize((h_old, w_old))(output)
     # normalize
     output = (output - dm) / ds
 

@@ -1,0 +1,68 @@
+defaults:
+  - _default_optimization_attack
+  - _self_
+type: optimization_SR
+attack_type: optimization_SR
+objective:
+  type: cosine-similarity
+  scale: 1.0 # need to have a much smaller scale like 0.0001 for euclidean objectives
+
+restarts:
+  num_trials: 1
+  scoring: "cosine-similarity"
+
+
+
+
+
+init: randn
+init_scale: 4
+optim:
+  optimizer: adam
+  signed: "hard"
+  step_size: 0.1
+  boxed: True
+  # max_iterations: 24_000
+  max_iterations: 5000
+  # step_size_decay: step-lr
+  step_size_decay: cosine-decay
+  patched: 
+  # callback: 1000 # Print objective value every callback many iterations
+  callback: 1000 # Print objective value every callback many iterations
+  
+
+  #GAN optmizer
+  budget: 2500
+  search_dim: 128
+  use_tanh: True
+  use_weight: False
+  num_samples: 50
+
+regularization:
+  total_variation:
+    scale: 0.2
+    # 0.2 # The old version did not take the mean dx + dy as the new version, so this corresponds to 0.1 in the old repo
+    inner_exp: 1
+    outer_exp: 1
+
+  # channelgrad:
+  #   scale: 0.3
+
+accelerate:
+  add_noise:
+    # interval: 1000
+    # scale: 0.01
+    # num_levels: 20
+
+  hierarchical_gradient: True
+# out_dir: "/home/zx/Gitrepo/breaching/out/patch_benchmark/invertgrad/origin_"
+
+save:
+  out_dir: 
+  idx:
+  log: False
+layer_weights: "equal"
+
+
+
+fl_num_class: 1000

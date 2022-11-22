@@ -35,6 +35,7 @@ class UserSingleStep(torch.nn.Module):
         """Initialize from cfg_user dict which contains atleast all keys in the matching .yaml :>"""
         super().__init__()
         self.num_data_points = cfg_user.num_data_points
+        self.data_points_start = cfg_user.data_points_start 
 
         self.provide_labels = cfg_user.provide_labels
         self.provide_num_data_points = cfg_user.provide_num_data_points
@@ -58,6 +59,7 @@ class UserSingleStep(torch.nn.Module):
         n = "\n"
         return f"""User (of type {self.__class__.__name__}) with settings:
     Number of data points: {self.num_data_points}
+    Data points start: {self.data_points_start}
 
     Threat model:
     User provides labels: {self.provide_labels}
@@ -221,7 +223,7 @@ class UserSingleStep(torch.nn.Module):
 
         data = dict()
         for key in data_blocks[0]:
-            data[key] = torch.cat([d[key] for d in data_blocks], dim=0)[: self.num_data_points].to(
+            data[key] = torch.cat([d[key] for d in data_blocks], dim=0)[self.data_points_start: self.data_points_start + self.num_data_points].to(
                 device=setup["device"]
             )
         self.data_key = "input_ids" if "input_ids" in data.keys() else "inputs"

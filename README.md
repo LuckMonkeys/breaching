@@ -106,3 +106,26 @@ If you have an attack that you are interested in implementing in this framework,
 
 ### Contact
 If you have any questions, also don't hesitate to open an issue here on github or write us an email.
+
+
+
+
+
+
+
+
+## Notice
+
+* Change selecte sample: 
+    
+    *  cfg.case.user.num_data_points = 1 # The attack is designed for only one data point
+    * /home/zx/Gitrepo/breaching/breaching/cases/users.py line 223, 
+
+    ```python
+        data[key] = torch.cat([d[key] for d in data_blocks], dim=0)[: self.num_data_points]
+        
+       % data['input'] shape [128, 3, 32, 32], therefore self.num_data_points to any number less than 128
+       
+       change [: self.num_data_points] to any indices wanted
+    ```
+

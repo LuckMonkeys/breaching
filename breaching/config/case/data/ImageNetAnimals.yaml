@@ -9,9 +9,12 @@ path: "~/data/ImageNet/ILSVRC2012_img_train"
 size: 1_281_167
 classes: 397
 shape:
+  # - 3
+  # - 224
+  # - 224
   - 3
-  - 224
-  - 224
+  - 256
+  - 256
 
 # Preprocessing:
 normalize: True
@@ -25,11 +28,12 @@ std:
   - 0.225
 # Data Augmentations:
 augmentations_train:
-  RandomResizedCrop: 224
+  RandomResizedCrop: 256
   RandomHorizontalFlip: 0.5
 augmentations_val:
   Resize: 256
-  CenterCrop: 224
+  CenterCrop: 256
+  # CenterCrop: 224
 
 # Federated Learning specifics:
 default_clients: 50

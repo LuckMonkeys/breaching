@@ -1,7 +1,8 @@
 name: single_imagenet
 
 defaults:
-  - data: ImageNetAnimals
+  # - data: ImageNetAnimals
+  - data: ImageNet
   - impl: default
   - server: honest-but-curious
   - user: local_gradient

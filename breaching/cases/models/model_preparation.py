@@ -12,6 +12,7 @@ from .vgg import VGG
 
 from .language_models import RNNModel, TransformerModel, LinearModel
 from .losses import CausalLoss, MLMLoss
+from pathlib import Path
 
 
 def construct_model(cfg_model, cfg_data, pretrained=True, **kwargs):
@@ -163,9 +164,15 @@ def _construct_vision_model(cfg_model, cfg_data, pretrained=True, **kwargs):
     channels = cfg_data.shape[0]
     classes = cfg_data.classes
 
-    if "ImageNet" in cfg_data.name:
+    if "ImageNet" or 'Celeba' in cfg_data.name:
         try:
-            model = getattr(torchvision.models, cfg_model.lower())(pretrained=pretrained)
+            # model = getattr(torchvision.models, cfg_model.lower())(pretrained=pretrained)
+            model = getattr(torchvision.models, cfg_model.lower())()
+            if pretrained:
+                if cfg_model.lower() == 'resnet18':
+                    home = Path.home().as_posix()
+                    state_dict = torch.load(home + '/data/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth')
+                    model.load_state_dict(state_dict)
             try:
                 # Try to adjust the linear layer and fill with previous data
                 fc = torch.nn.Linear(model.fc.in_features, classes)

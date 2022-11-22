@@ -3,13 +3,17 @@ import math
 import random
 import numpy as np
 import torch
+import torchvision
 import cv2
 from torchvision.utils import make_grid
 from datetime import datetime
 # import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from typing import List
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+from collections import defaultdict
+import shutil
 
 
 '''
@@ -1002,6 +1006,240 @@ def imresize_np(img, scale, antialiasing=True):
 
     return out_2.numpy()
 
+
+
+'''
+# --------------------------------------------
+# utils for project breaching 
+# --------------------------------------------
+'''
+
+import re
+from pathlib import Path
+def get_losses_from_log(log_path, iteration=1000):
+    """
+    get losses of final iteration from log hydra log file
+    for example:
+        [2022-09-02 03:32:26,968] | It: 1000 | Rec. loss: 0.7659 |  Task loss: 0.0000 | T: 23.37s regularizer_objective_loss: 0.0552 
+    args:
+        log_path: the log file path
+        iteration: expected iteration
+    return:
+        iter_loss: the dict include the {label:[rec_loss, task_loss, time, regularize_loss]}
+    """
+    with open(log_path) as f:
+        content = f.readlines()
+
+    
+    iter_num, r = 0, 0
+    iter_loss = {}
+    stack =[]
+    for s in content:
+        if 'Recovered labels' in s:
+            iter_num = re.findall('Recovered labels \[(\d+)\] through strategy bias-corrected', s)
+            stack.append(iter_num[0])
+        if f'It: {iteration}' in s: 
+            r = re.findall('([0-9]{1,}[.][0-9]*)', s)
+            assert len(r) == 4, f'wrong match, exptected match length 4, but get length {len(r)} '
+            iter_loss[int(stack.pop())] = [float(loss) for loss in r]
+
+    return iter_loss
+
+def reverse_delete_files(dir: str, filenames: List[str]):
+    """
+    reverse delete the files
+
+    args:
+        dir: the dir of deleted files
+        filenames: the preserved files
+    """
+    dir = Path(dir) 
+    file_path = [i for i in dir.iterdir()]
+    for path in file_path:
+        if path.name not in filenames:
+            os.remove(str(path))
+
+
+def cal_psrn(dir_H: str, dir_L: str, filenames: List[str]=None):
+    """
+    
+    calculate the psnr between large image and scaled image
+
+    args:
+        dir_H: the dir of large images
+        dir_L: the dir of scaled images
+        filenames: the list of images to calculate psnrs, if filenames is None, take images from dir_L
+
+
+    return:
+        prnrs: psnrs list of all images in filenames
+
+    """
+    from PIL import Image
+    import numpy as np
+
+
+    if filenames is None:
+        filenames = [path.name for path in Path(dir_L).iterdir()]
+
+    psnrs = []
+    for name in filenames:
+        H_path = dir_H + '/' + name
+        L_path = dir_L + '/' + name
+
+        img_L =np.array(Image.open(L_path))
+        if len(img_L.shape) == 3:
+            L_img_size = img_L.shape[:2]
+        else:
+            raise NotImplementedError(f'Expected L image shape (h,w,c) but get image shape {img_L.shape}')
+
+        img_H =np.array(Image.open(H_path).resize(L_img_size)) 
+
+        psnrs.append(calculate_psnr(img1=img_H, img2=img_L)) 
+    return psnrs
+
+def mean(items):
+    sum = 0.0
+    for i in items:
+        sum += i
+    return sum / len(items)
+
+def task_loss_filter_from_match(match_loss, threshold=0.001):
+    """
+    filter filenames based on task loss
+    
+    args:
+        match_loss: the {filename:loss_list} dict, used for return of function get_losses_from_log()
+        threshold: keep the filenames which task_loss not great than threashold
+    return:
+        filenames: list for qualified filenaems
+    """
+    filenames = []
+    for k, v in match_loss.items():
+        if v[1] <= threshold:
+            filenames.append(f'{k}.png')
+    return filenames
+
+import torch
+import torchvision
+def get_task_loss(model: torch.nn.Module, loss_fn: torch.nn.Module, labels: torch.tensor, img_path: str, transforms=None):
+    img = torchvision.io.read_image(img_path).to(torch.float32)
+    trans_img = transforms(img.div_(255.0).unsqueeze(0))
+    return loss_fn(model(trans_img), labels)
+
+
+
+def model_preperation(cfg='resnet18_imagenet'):
+    
+    if cfg == 'resnet18_imagenet':
+        model = torchvision.models.resnet18()
+        home = Path.home().as_posix()
+        state_dict = torch.load(home + '/data/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth')
+        model.load_state_dict(state_dict=state_dict)
+        model.eval()
+
+        mean = [0.485, 0.456, 0.406]
+        std = [0.229, 0.224, 0.225]
+
+        transforms = torchvision.transforms.Compose(
+        [torchvision.transforms.Normalize(mean=mean, std=std)]
+        )
+
+        loss_fn = torch.nn.CrossEntropyLoss()
+
+    else:
+        raise NotImplementedError(f'cfg {cfg} not implement yet')
+
+
+    return model, loss_fn, transforms
+
+def read_filenames_from_log(log_dir):
+    """
+    read and filter out filenames based on task loss
+    args:
+        log_dir: the dir of log file
+        logdir:
+            a/xxx.log
+            b/xxx.log
+            c/xxx.log
+    
+    return:
+        filenames_dict: the qualified filenames for each log file, {idx:[xxx.png]}, a, b, c -> 1, 2, 3
+
+    """
+    filenames_dict = defaultdict(list)
+    idx = 1
+    for time_dir in Path(log_dir).iterdir():
+        log_files = time_dir.glob('*.log')
+        for log in log_files:
+            match = get_losses_from_log(str(log))
+            filenames = task_loss_filter_from_match(match_loss=match)
+            filenames_dict[idx].extend(filenames) 
+        idx += 1
+
+    return filenames_dict
+
+def task_loss_filter_from_cal(file_dir: Path, threshold=0.001):
+    """
+    filter out filenames based on calculated task loss
+    args:
+        file_dir: the dir of images
+        threshold: the images would be filter out if their task large than threshold
+    return:
+        filenames: qualified name list of images in file_dir
+
+
+    """
+    filenames = []
+    model, loss_fn, transforms = model_preperation()
+    
+    for img_path in file_dir.iterdir():
+        label = int(img_path.name.split('.')[0])
+        labels = torch.tensor([label])
+        loss = get_task_loss(model=model, loss_fn=loss_fn, transforms=transforms, labels=labels, img_path=str(img_path))
+        if loss <= threshold:
+            filenames.append(img_path.name)
+    return filenames
+        
+
+def get_common_filenames(lq_filenames_dict, normal_dir):
+    """
+    get common filenames between 1000 iteration scaled low quality images and 5000 iteration images
+
+    args:
+        lq_filenames_dict: the qualified scaled images filenames
+        normal_dir: the dir of 5000 iteration images
+    return:
+        lq_filenames_dict: {1:['xxx.png'...], 2:['xxx.png'...]} the common filenames dict
+
+
+    """
+
+    for key, value in lq_filenames_dict.items():
+        lq_5000_dir = Path(normal_dir) / f'{key}' / 'lq_5000'
+        # hq_dir = Path(normal_dir) / f'{key}' / 'hq'
+        
+        lq_5000_img_name = set(task_loss_filter_from_cal(file_dir=lq_5000_dir))
+        # {img_path.name for img_path in lq_5000_dir.iterdir()}
+
+        lq_1000_img_name = set(value)
+        common_name = lq_1000_img_name & lq_5000_img_name    
+
+        lq_filenames_dict[key] = list(common_name)
+def copy_file(src, dst):
+    shutil.copyfile(src=src, dst=dst)
+
+
+def resize_img_and_save(src_img_dir: str, dst_img_dir: str, size: tuple[int]):
+    from PIL import Image
+
+    if not (dst_dir:=Path(dst_img_dir)).exists():
+        dst_dir.mkdir()
+
+    for img_path in Path(src_img_dir).iterdir():
+        img = Image.open(img_path.as_posix())
+        img = img.resize(size)
+        img.save(dst_img_dir + '/' + img_path.name)
 
 if __name__ == '__main__':
     img = imread_uint('test.bmp', 3)

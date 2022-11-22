@@ -11,7 +11,7 @@ restarts:
   num_trials: 1
   scoring: "cosine-similarity"
 
-init: zeros
+init: randn
 optim:
   optimizer: adam
   signed: "hard"
@@ -23,8 +23,8 @@ optim:
   step_size_decay: cosine-decay
   patched: 
 
-  # callback: 1000 # Print objective value every callback many iterations
-  callback: 100 # Print objective value every callback many iterations
+  callback: 1000 # Print objective value every callback many iterations
+  # callback: 100 # Print objective value every callback many iterations
 
 regularization:
   total_variation:
@@ -42,7 +42,11 @@ accelerate:
     # scale: 0.01
     # num_levels: 20
 
+  denoise: False
+
   hierarchical_gradient: True
 # out_dir: "/home/zx/Gitrepo/breaching/out/patch_benchmark/invertgrad/origin_"
-out_dir: 
+save:
+  out_dir: 
+  idx:
 layer_weights: "equal"

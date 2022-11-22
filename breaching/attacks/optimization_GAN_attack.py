@@ -196,6 +196,7 @@ class NGReconstructor(_BaseAttacker):
         self.use_weight = cfg_attack.optim.use_weight
         self.strategy = cfg_attack.optim.optimizer
         self.metric = cfg_attack.objective.type
+        self.out_dir = cfg_attack.out_dir
         
         ##fl setting
         self.fl_loss_fn = loss_fn
@@ -208,7 +209,7 @@ class NGReconstructor(_BaseAttacker):
         # parametrization = ng.p.Array(shape=search_dim)
         parametrization = ng.p.Array(init=np.random.rand(self.search_dim))
         #parametrization = ng.p.Array(init=np.zeros(search_dim))#.set_mutation(sigma=1.0)
-        self.optimizer = ng.optimizers.registry[self.strategy](parametrization=parametrization, budget=self.budget)
+        self.optimizer = ng.optimizers.registry[self.strategy](parametrization=parametrization, budget=self.budget)#Budget指optimizer最多优化次数
 #         self.optimizer.parametrization.register_cheap_constraint(lambda x: (x>=-2).all() and (x<=2).all())
 
         # self.fl_setting = {'loss_fn':loss_fn, 'fl_model':fl_model, 'num_classes':num_classes}
@@ -263,8 +264,9 @@ class NGReconstructor(_BaseAttacker):
 
         c = torch.nn.functional.one_hot(labels, num_classes=self.num_classes).to(input_gradient[0].device)
 
-        pbar = tqdm(range(self.budget)) if use_pbar else range(self.budget)
+        pbar = tqdm(range(self.budget), desc='rec') if use_pbar else range(self.budget)
 
+        # print(pbar)
         for r in pbar:
             start_time = time.time()
             ng_data = [self.optimizer.ask() for _ in range(self.num_samples)]
@@ -296,8 +298,10 @@ class NGReconstructor(_BaseAttacker):
                 x_res = self.generator(z_res.float(), c.float(), 1)
             x_res = nn.functional.interpolate(x_res, size=(224, 224), mode='area')
             img_res = convert_to_images(x_res.cpu())
-            # for img in img_res:
-            #     img.save(f'/home/zx/Gitrepo/breaching/out/GAN/CMA/{r}.png')
+
+            if r % 10 == 0 and self.out_dir is not None:
+                for img in img_res:
+                    img.save(f'{self.out_dir}/{r}.png')
 
             if dryrun:
                 break
@@ -477,7 +481,7 @@ class AdamReconstructor(_BaseAttacker):
 
         c = torch.nn.functional.one_hot(labels, num_classes=self.num_classes).to(input_gradient[0].device)
 
-        pbar = tqdm(range(self.budget)) if use_pbar else range(self.budget)
+        pbar = tqdm(range(self.budget), desc='rec') if use_pbar else range(self.budget)
 
         for r in pbar:
             iter_start_time = time.time()
@@ -745,7 +749,7 @@ class AdamReconstructorNoGan():
 
         self.optimizer = torch.optim.Adam([self.x], betas=(0.9, 0.999), lr=self.lr)
 
-        pbar = tqdm(range(self.budget)) if use_pbar else range(self.budget)
+        pbar = tqdm(range(self.budget), desc='rec') if use_pbar else range(self.budget)
 
         for r in pbar:
             iter_start_time = time.time()
