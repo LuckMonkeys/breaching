@@ -36,7 +36,7 @@ if opt.class_cond:
 cfg.attack.optim.max_iterations = opt.max_iterations
 cfg.attack.diffusion.timestep_respacing = opt.timestep_respacing
 
-cfg.attack.save.out_dir = os.path.join("/home/zx/data/GitRepo/breaching/out/diffusion", f"class_cond_{opt.class_cond}_iteration_{cfg.attack.optim.max_iterations}_respacing_{cfg.attack.diffusion.timestep_respacing}")
+cfg.attack.save.out_dir = os.path.join("/home/zx/data/GitRepo/breaching/out/diffusion/resample", f"class_cond_{opt.class_cond}_iteration_{cfg.attack.optim.max_iterations}_respacing_{cfg.attack.diffusion.timestep_respacing}")
 
 if not os.path.exists(cfg.attack.save.out_dir):
    os.makedirs(cfg.attack.save.out_dir) 

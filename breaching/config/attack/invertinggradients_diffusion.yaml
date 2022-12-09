@@ -19,7 +19,7 @@ optim:
   step_size: 0.1
   boxed: False
   # max_iterations: 24_000
-  max_iterations: 100
+  max_iterations: 0
   # step_size_decay: step-lr
   step_size_decay: cosine-decay
   patched: 
@@ -69,7 +69,7 @@ diffusion:
   # timestep_respacing: "ddim50"
 
   use_ddim: False
-  timestep_respacing: "100"
+  timestep_respacing: "250"
 
   
   #classifier
