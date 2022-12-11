@@ -170,8 +170,9 @@ def _construct_vision_model(cfg_model, cfg_data, pretrained=True, **kwargs):
             model = getattr(torchvision.models, cfg_model.lower())()
             if pretrained:
                 if cfg_model.lower() == 'resnet18':
-                    home = Path.home().as_posix()
-                    state_dict = torch.load(home + '/data/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth')
+                    # home = Path.home().as_posix()
+                    home = '/home/zx'
+                    state_dict = torch.load(home + '/.cache/torch/hub/checkpoints/resnet18-f37072fd.pth')
                     model.load_state_dict(state_dict)
             try:
                 # Try to adjust the linear layer and fill with previous data

@@ -1230,7 +1230,7 @@ def copy_file(src, dst):
     shutil.copyfile(src=src, dst=dst)
 
 
-def resize_img_and_save(src_img_dir: str, dst_img_dir: str, size: tuple[int]):
+def resize_img_and_save(src_img_dir: str, dst_img_dir: str, size: Tuple[int]):
     from PIL import Image
 
     if not (dst_dir:=Path(dst_img_dir)).exists():

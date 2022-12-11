@@ -2,20 +2,23 @@ name: CelebaHQ_Gender
 modality: vision
 task: classification
 
-path: "~/data/celeba_hq"
+# path: "/home/zx/nfs/server3/data/"
+path: "/home/zx/data/"
 size: 30_000
 classes: 2
+
+scale: 140
 shape:
   - 3
-  - 256
-  - 256
+  - ${case.data.scale}
+  - ${case.data.scale}
 
 # Preprocessing:
 normalize: True
 
 
-celeba_mean = [0.50612009, 0.42543493, 0.38282761] # https://blog.csdn.net/HuanCaoO/article/details/106965082
-celeba_std = [0.26589054, 0.24521921, 0.24127836]
+# celeba_mean = [0.50612009, 0.42543493, 0.38282761] # https://blog.csdn.net/HuanCaoO/article/details/106965082
+# celeba_std = [0.26589054, 0.24521921, 0.24127836]
 
 mean:
   - 0.506
@@ -29,16 +32,17 @@ std:
 
 # Data Augmentations:
 augmentations_train:
-  RandomResizedCrop: 256
+  RandomResizedCrop: ${case.data.scale}
   RandomHorizontalFlip: 0.5
 augmentations_val:
-  Resize: 256
+  Resize: ${case.data.scale}
   # CenterCrop: 224
 
 # Federated Learning specifics:
 default_clients: 2
 # partition: balanced # used for synthetic splits. Current options for synthetic split: balanced / unique-class
-partition: unique-class # used for synthetic splits. Current options for synthetic split: balanced / unique-class
+# partition: unique-class # used for synthetic splits. Current options for synthetic split: balanced / unique-class
+partition: balanced
 examples_from_split: validation
 
 # Data-specific implementation constants:

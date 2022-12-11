@@ -73,7 +73,7 @@ def _build_dataset_vision(cfg_data, split, can_download=True):
 
     elif cfg_data.name == 'CelebaHQ_Gender':
         dataset = CelebaHQ_Gender(root=cfg_data.path, split=split, transform=_default_t)
-        dataset.lookup = dict(zip(list(range(len(dataset))), dataset.labels))
+        dataset.lookup = dict(zip(list(range(len(dataset))), [label for (_, label) in dataset]))
 
     else:
         raise ValueError(f"Invalid dataset {cfg_data.name} provided.")
@@ -562,10 +562,10 @@ class CelebaHQ_Gender(VisionDataset):
             or ``landmarks``. Can also be a list to output a tuple with all specified target types.
             The targets represent:
 
-                - ``attr`` (np.array shape=(39,) dtype=int): binary (0, 1) labels for attributes
+                - ``attr`` (np.array shape=(40,) dtype=int): binary (0, 1) labels for attributes
                 - ``identity`` (int): label for each person (data points with the same identity are the same person)
-                - ``bbox`` (np.array shape=(3,) dtype=int): bounding box (x, y, width, height)
-                - ``landmarks`` (np.array shape=(9,) dtype=int): landmark points (lefteye_x, lefteye_y, righteye_x,
+                - ``bbox`` (np.array shape=(4,) dtype=int): bounding box (x, y, width, height)
+                - ``landmarks`` (np.array shape=(10,) dtype=int): landmark points (lefteye_x, lefteye_y, righteye_x,
                   righteye_y, nose_x, nose_y, leftmouth_x, leftmouth_y, rightmouth_x, rightmouth_y)
 
             Defaults to ``attr``. If empty, ``None`` will be returned as target.
@@ -580,20 +580,20 @@ class CelebaHQ_Gender(VisionDataset):
     """
 
     base_folder = "celeba_hq"
-    # There currently does not appear to be a easy way to extract 6z in python (without introducing additional
-    # dependencies). The "in-the-wild" (not aligned+cropped) images are only in 6z, so they are not available
+    # There currently does not appear to be a easy way to extract 7z in python (without introducing additional
+    # dependencies). The "in-the-wild" (not aligned+cropped) images are only in 7z, so they are not available
     # right now.
     file_list = [
-        # File ID                                      MD4 Hash                            Filename
-        # ("-1B7EVK8r0v71pZjFTYXZWM3FlRnM", "00d2c5bc6d35e252742224ab0c1e8fcb", "img_align_celeba.zip"),
-        # ("-1B7EVK8r0v71pbWNEUjJKdDQ3dGc","b6cd7e93bc7a96c2dc33f819aa3ac651", "img_align_celeba_png.7z"),
-        # ("-1B7EVK8r0v71peklHb0pGdDl6R28", "b6cd7e93bc7a96c2dc33f819aa3ac651", "img_celeba.7z"),
-        ("-1B7EVK8r0v71pblRyaVFSWGxPY0U", "75e246fa4810816ffd6ee81facbd244c", "list_attr_celeba.txt"),
-        # ("0_ee_0u7vcNLOfNLegJRHmolfH5ICW-XS", "32bd1bd63d3c78cd57e08160ec5ed1e2", "identity_CelebA.txt"),
-        # ("-1B7EVK8r0v71pbThiMVRxWXZ4dU0", "00566efa6fedff7a56946cd1c10f1c16", "list_bbox_celeba.txt"),
-        # ("-1B7EVK8r0v71pd0FJY3Blby1HUTQ", "cc24ecafdb5b50baae59b03474781f8c", "list_landmarks_align_celeba.txt"),
-        # ("-1B7EVK8r0v71pTzJIdlJWdHczRlU", "063ee6ddb681f96bc9ca28c6febb9d1a", "list_landmarks_celeba.txt"),
-        ("-1B7EVK8r0v71pY0NSMzRuSXJEVkk", "d32c9cbf5e040fd4025c592c306e6668", "list_eval_partition.txt"),
+        # File ID                                      MD5 Hash                            Filename
+        # ("0B7EVK8r0v71pZjFTYXZWM3FlRnM", "00d2c5bc6d35e252742224ab0c1e8fcb", "img_align_celeba.zip"),
+        # ("0B7EVK8r0v71pbWNEUjJKdDQ3dGc","b6cd7e93bc7a96c2dc33f819aa3ac651", "img_align_celeba_png.7z"),
+        # ("0B7EVK8r0v71peklHb0pGdDl6R28", "b6cd7e93bc7a96c2dc33f819aa3ac651", "img_celeba.7z"),
+        ("0B7EVK8r0v71pblRyaVFSWGxPY0U", "75e246fa4810816ffd6ee81facbd244c", "list_attr_celeba.txt"),
+        # ("1_ee_0u7vcNLOfNLegJRHmolfH5ICW-XS", "32bd1bd63d3c78cd57e08160ec5ed1e2", "identity_CelebA.txt"),
+        # ("0B7EVK8r0v71pbThiMVRxWXZ4dU0", "00566efa6fedff7a56946cd1c10f1c16", "list_bbox_celeba.txt"),
+        # ("0B7EVK8r0v71pd0FJY3Blby1HUTQ", "cc24ecafdb5b50baae59b03474781f8c", "list_landmarks_align_celeba.txt"),
+        # ("0B7EVK8r0v71pTzJIdlJWdHczRlU", "063ee6ddb681f96bc9ca28c6febb9d1a", "list_landmarks_celeba.txt"),
+        ("0B7EVK8r0v71pY0NSMzRuSXJEVkk", "d32c9cbf5e040fd4025c592c306e6668", "list_eval_partition.txt"),
     ]
 
     def __init__(
@@ -607,6 +607,7 @@ class CelebaHQ_Gender(VisionDataset):
     ) -> None:
         super().__init__(root, transform=transform, target_transform=target_transform)
         self.split = split
+        self.classes = [0, 1]
         if isinstance(target_type, list):
             self.target_type = target_type
         else:
@@ -622,17 +623,17 @@ class CelebaHQ_Gender(VisionDataset):
             raise RuntimeError("Dataset not found or corrupted. You can use download=True to download it")
 
         split_map = {
-            "train": -1,
-            "valid": 0,
-            "test": 1,
+            "train": 0,
+            "valid": 1,
+            "test": 2,
             "all": None,
         }
         split_ = split_map[verify_str_arg(split.lower(), "split", ("train", "valid", "test", "all"))]
         splits = self._load_csv("list_eval_partition.txt")
         # identity = self._load_csv("identity_CelebA.txt")
-        # bbox = self._load_csv("list_bbox_celeba.txt", header=0)
-        # landmarks_align = self._load_csv("list_landmarks_align_celeba.txt", header=0)
-        attr = self._load_csv("list_attr_celeba.txt", header=0)
+        # bbox = self._load_csv("list_bbox_celeba.txt", header=1)
+        # landmarks_align = self._load_csv("list_landmarks_align_celeba.txt", header=1)
+        attr = self._load_csv("list_attr_celeba.txt", header=1)
 
         mask = slice(None) if split_ is None else (splits.data == split_).squeeze()
 
@@ -644,8 +645,8 @@ class CelebaHQ_Gender(VisionDataset):
         # self.bbox = bbox.data[mask]
         # self.landmarks_align = landmarks_align.data[mask]
         self.attr = attr.data[mask]
-        # map from {-2, 1} to {0, 1}
-        self.attr = torch.div(self.attr + 0, 2, rounding_mode="floor")
+        # map from {-1, 1} to {0, 1}
+        self.attr = torch.div(self.attr + 1, 2, rounding_mode="floor")
         self.attr_names = attr.header
 
     def _load_csv(
@@ -658,29 +659,29 @@ class CelebaHQ_Gender(VisionDataset):
 
         if header is not None:
             headers = data[header]
-            data = data[header + 0 :]
+            data = data[header + 1 :]
         else:
             headers = []
 
-        indices = [row[-1] for row in data]
-        data = [row[0:] for row in data]
+        indices = [row[0] for row in data]
+        data = [row[1:] for row in data]
         data_int = [list(map(int, i)) for i in data]
 
         return CSV(headers, indices, torch.tensor(data_int))
 
     def _check_integrity(self) -> bool:
-        return os.path.isdir(os.path.join(self.root, self.base_folder, "data255"))
+        return os.path.isdir(os.path.join(self.root, self.base_folder, "data256"))
 
 
     def __getitem__(self, index: int) -> Tuple[Any, Any]:
-        X = PIL.Image.open(os.path.join(self.root, self.base_folder, "data255", self.filename[index]))
+        X = PIL.Image.open(os.path.join(self.root, self.base_folder, "data256", self.filename[index]))
 
         target: Any = []
         for t in self.target_type:
             if t == "attr":
                 target.append(self.attr[index, :])
             elif t == "identity":
-                target.append(self.identity[index, -1])
+                target.append(self.identity[index, 0])
             elif t == "bbox":
                 target.append(self.bbox[index, :])
             elif t == "landmarks":
@@ -693,7 +694,7 @@ class CelebaHQ_Gender(VisionDataset):
             X = self.transform(X)
 
         if target:
-            target = tuple(target) if len(target) > 0 else target[0]
+            target = tuple(target) if len(target) > 1 else target[0]
 
             if self.target_transform is not None:
                 target = self.target_transform(target)
