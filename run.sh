@@ -176,3 +176,10 @@
 
 # CUDA_VISIBLE_DEVICES=2 python data_generate_diffusion.py attack=invertinggradients_diffusion $sample_flag $grad_attack_flag $reconstruction_flag
 # # CUDA_VISIBLE_DEVICES=0 python data_generate_diffusion.py attack=invertinggradients_diffusion $sample_flag $grad_attack_flag $reconstruction_flag dryrun=True
+# 
+
+
+
+CUDA_VISIBLE_DEVICES=0 python benchmark_breaches.py case=11_single_celebahq_gender case.server.pretrained=True case.data.examples_from_split="valid" case.data.partition="random" case.data.scale=112
+# CUDA_VISIBLE_DEVICES=0 python benchmark_breaches.py case=11_single_celebahq_gender case.server.pretrained=True case.data.examples_from_split="valid" case.data.partition="random" case.data.scale=224
+CUDA_VISIBLE_DEVICES=0 python benchmark_breaches.py case=11_single_celebahq_gender case.server.pretrained=True case.data.examples_from_split="valid" case.data.partition="random" case.data.scale=224

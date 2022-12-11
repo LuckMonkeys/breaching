@@ -29,3 +29,5 @@ dryrun: False
 num_trials: 100
 # save_reconstruction: False
 save_reconstruction: True
+
+state_dict_path: 

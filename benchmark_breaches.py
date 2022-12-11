@@ -6,6 +6,7 @@ The arguments from the default config carry over here.
 
 import hydra
 from omegaconf import OmegaConf
+import torch
 
 import datetime
 import time
@@ -24,6 +25,9 @@ def main_process(process_idx, local_group_size, cfg, num_trials=100):
     total_time = time.time()  # Rough time measurements here
     setup = breaching.utils.system_startup(process_idx, local_group_size, cfg)
     model, loss_fn = breaching.cases.construct_model(cfg.case.model, cfg.case.data, cfg.case.server.pretrained)
+    
+    if cfg.state_dict_path is not None:
+        model.load_state_dict(torch.load(cfg.state_dict_path))
 
     if cfg.num_trials is not None:
         num_trials = cfg.num_trials
